@@ -73,6 +73,37 @@ $RATTM,05,08.23,112.4,T,12.5,090.5,T,0.85,04.2,N,MV_MARINER,T,A*1A
 | `A` | `A` | Phương thức bám bắt: `A` = Automatic (Tự động quét bắt), `M` = Manual (Chọn bằng tay) |
 | `*1A` | `*1A` | Checksum Hexadecimal để kiểm lỗi tính toàn vẹn của chuỗi |
 
+> [!NOTE]
+> **Sự sai khác thực tế về tham số Target Status (Trạng thái bám bắt) trong chuỗi RATTM**
+> 
+> * **Theo chuẩn quốc tế lý thuyết (NMEA 0183 / IEC 61162-1):** Trường dữ liệu Target Status được quy định chặt chẽ là sử dụng chữ in hoa:
+>   * `T` = Tracking (Mục tiêu đang được bám bắt và tính toán quỹ đạo ổn định).
+>   * `L` = Lost (Mục tiêu đã bị mất dấu do đi ra ngoài tầm quét radar hoặc bị che khuất).
+>   * `Q` = Query (Radar đang trong quá trình truy vấn, đang dò tìm để khóa mục tiêu, chưa chốt số liệu).
+> 
+> * **Theo dữ liệu log thực tế:** Khi trích xuất dữ liệu từ một số dòng máy cụ thể (có thể do phiên bản phần mềm hoặc quy định riêng của hãng), thiết bị lại trả về dạng chữ thường:
+>   * `b` = Đang bám bắt ổn định (Tracked - Ký hiệu chữ 'b' có thể là viết tắt của từ "bám bắt" hoặc một mã quy ước riêng của thiết bị).
+>   * `q` = Đang truy vấn.
+>   * `l` = Mất dấu mục tiêu.
+> 
+> **=> Đúc kết dành cho kỹ sư/lập trình viên:** Đây là hiện tượng "biến thể thực tế" (proprietary variation) rất thường gặp khi làm việc với nhiều hệ thống hàng hải từ các hãng khác nhau. Khi lập trình viết phần mềm giải mã (Parser) để tích hợp lên tàu, để hệ thống chạy ổn định và tương thích ngược, lập trình viên bắt buộc phải cấu hình đọc chấp nhận cả 2 trường hợp. (Ví dụ đoạn code: `if (status == 'T' || status == 'b') { Xác nhận Tracking mục tiêu }`). Dừng lại ở chuẩn lý thuyết là chưa đủ để xử lý thực tiễn trên tàu.
+
+> [!TIP]
+> **Giải thích chi tiết về "Checksum Hexadecimal"**
+> 
+> Trong chuẩn truyền dữ liệu NMEA 0183 của các thiết bị hàng hải, Checksum là cơ chế cốt lõi để kiểm tra tính toàn vẹn của dữ liệu (Data Integrity Check).
+> 
+> * **Vị trí và Cấu trúc:** Nó luôn nằm ở tận cùng của chuỗi dữ liệu, được ngăn cách bởi một dấu sao `*` và theo sau là 2 ký tự Hexadecimal (Hệ cơ số 16, biểu diễn giá trị từ `00` đến `FF`).
+>   * *Ví dụ:* Trong chuỗi `$RATTM,...*3F`, thì `3F` chính là mã Checksum Hexadecimal.
+> * **Cách máy tính tạo ra Checksum:**
+>   * Cảm biến (máy phát) sẽ lấy tất cả các ký tự nằm giữa dấu `$` (hoặc `!`) và dấu `*`.
+>   * Thiết bị sẽ thực hiện phép toán logic **XOR (Exclusive OR)** trên mã ASCII của lần lượt từng ký tự này. Kết quả của chuỗi phép toán này sẽ ra một con số nhị phân 8-bit, sau đó được đổi sang hệ Hexadecimal và gắn vào cuối câu.
+> * **Tại sao lại cần nó?** Trên tàu biển, cáp tín hiệu thường chạy rất dài và môi trường thì chịu nhiễu điện từ cực mạnh (từ radar phát sóng công suất lớn, máy phát điện, motor). Nhiễu có thể làm dữ liệu đang truyền bị biến dạng (VD: Số 5 bị méo thành số 9).
+>   * Khi máy tính (hoặc màn hình) nhận được chuỗi dữ liệu, phần mềm giải mã sẽ lấy các ký tự vừa nhận được để làm lại phép tính XOR.
+>   * Sau đó, nó đem kết quả tính được so sánh với 2 ký tự Hexa ở cuối chuỗi.
+>   * **Nếu khớp nhau:** Dữ liệu đúng 100%, có thể đem đi tính toán chống đâm va.
+>   * **Nếu sai lệch:** Đường truyền đã bị nhiễu làm biến đổi dữ liệu, hệ thống bắt buộc phải vứt bỏ (Drop) ngay lập tức chuỗi này chờ chuỗi sau, tuyệt đối không được tin tưởng.
+
 ---
 
 ## 2. La Bàn Vệ Tinh DGPS Có Chức Năng GNSS Denied
